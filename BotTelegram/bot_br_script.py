@@ -76,58 +76,61 @@ data_ultima_atualizacao = datetime.now()
 
 #ATUALIZAÇÃO DO JOGO !
 async def send_random_message(bot, chat_id, game):
-    global acertos, erros, versao_jogo, data_ultima_atualizacao
+    try:
+        global acertos, erros, versao_jogo, data_ultima_atualizacao
 
-    if game == "Fortune Tiger":
-        messages = messages_fortune_tiger
-    elif game == "Fortune OX":
-        messages = messages_fortune_ox
-    elif game == "Fortune Mouse":
-        messages = messages_fortune_mouse
-    else:
-        raise ValueError("Jogo inválido")
-
-    versao_jogo = "v3.4"
-
-    if (datetime.now() - data_ultima_atualizacao).days >= 25:
-        # Atualiza a versão do jogo
-        versao_numerica, versao_decimal = versao_jogo[1:].split(".")
-        
-        if versao_decimal == "9":
-            nova_versao = int(versao_numerica) + 1
-            versao_jogo = f"v{nova_versao}.0"
+        if game == "Fortune Tiger":
+            messages = messages_fortune_tiger
+        elif game == "Fortune OX":
+            messages = messages_fortune_ox
+        elif game == "Fortune Mouse":
+            messages = messages_fortune_mouse
         else:
-            nova_versao_decimal = int(versao_decimal) + 1
-            versao_jogo = f"v{versao_numerica}.{nova_versao_decimal}"
-        
-        data_ultima_atualizacao = datetime.now()
+            raise ValueError("Jogo inválido")
 
-    num_jogadas = random.randint(6, 23)
-    soma_giros = num_jogadas
-    while True:
-        giros_turbo = random.randint(1, soma_giros - 1)
-        giros_manual = soma_giros - giros_turbo
-        if giros_manual >= 1:
-            break
-    
-    # Escolha aleatoriamente entre vitória (95%) e derrota (5%)
-    outcome = random.choices(['vitoria', 'derrota'], weights=[0.95, 0.05])[0]
-    
-    if outcome == 'vitoria':
-        message = random.choice(messages).format(num_jogadas=num_jogadas, giros_turbo=giros_turbo, giros_manual=giros_manual, LINK_COMUM=LINK_COMUM,  versao_jogo=versao_jogo)
-        acertos += 1
-    else:
-        message = "*🔴 LOSS 🔴* \n\n Infelizmente, não tivemos sucesso desta vez. Continue tentando!"
-        erros += 1
-    
-    keyboard = [[InlineKeyboardButton("🎯 NÃO PERCA ESSA CHANCE!", url=LINK_COMUM)]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    sent_message = await bot.send_message(chat_id=chat_id, text=message, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
-    
-    print(f"Comando executado: send_random_message(bot, chat_id, '{game}')")
-    
-    return sent_message.message_id
+        versao_jogo = "v3.4"
+
+        if (datetime.now() - data_ultima_atualizacao).days >= 25:
+            # Atualiza a versão do jogo
+            versao_numerica, versao_decimal = versao_jogo[1:].split(".")
+            
+            if versao_decimal == "9":
+                nova_versao = int(versao_numerica) + 1
+                versao_jogo = f"v{nova_versao}.0"
+            else:
+                nova_versao_decimal = int(versao_decimal) + 1
+                versao_jogo = f"v{versao_numerica}.{nova_versao_decimal}"
+            
+            data_ultima_atualizacao = datetime.now()
+
+        num_jogadas = random.randint(6, 23)
+        soma_giros = num_jogadas
+        while True:
+            giros_turbo = random.randint(1, soma_giros - 1)
+            giros_manual = soma_giros - giros_turbo
+            if giros_manual >= 1:
+                break
+        
+        # Escolha aleatoriamente entre vitória (95%) e derrota (5%)
+        outcome = random.choices(['vitoria', 'derrota'], weights=[0.95, 0.05])[0]
+        
+        if outcome == 'vitoria':
+            message = random.choice(messages).format(num_jogadas=num_jogadas, giros_turbo=giros_turbo, giros_manual=giros_manual, LINK_COMUM=LINK_COMUM,  versao_jogo=versao_jogo)
+            acertos += 1
+        else:
+            message = "*🔴 LOSS 🔴* \n\n Infelizmente, não tivemos sucesso desta vez. Continue tentando!"
+            erros += 1
+        
+        keyboard = [[InlineKeyboardButton("🎯 NÃO PERCA ESSA CHANCE!", url=LINK_COMUM)]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        sent_message = await bot.send_message(chat_id=chat_id, text=message, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
+        
+        print(f"Comando executado: send_random_message(bot, chat_id, '{game}')")
+        
+        return sent_message.message_id
+    except telegram.error.TimedOut:
+        print("A solicitação excedeu o tempo limite. Continuando com a próxima etapa.")
 
 async def send_victory_message(bot, chat_id):
     global acertos, erros
@@ -167,37 +170,39 @@ async def main():
     analyzing_message_id = None  # ID da mensagem de análise
 
     while True:
-        # Percorre os jogos aleatoriamente
-        games = list(game_messages.keys())
-        random.shuffle(games)
-        
-        for game in games:
-            messages = game_messages[game]
+        try:
+            # Percorre os jogos aleatoriamente
+            games = list(game_messages.keys())
+            random.shuffle(games)
             
-            # Apaga a mensagem de análise anterior, se existir
-            if analyzing_message_id is not None:
-                try:
-                    await bot.delete_message(chat_id=chat_id, message_id=analyzing_message_id)
-                except Exception as e:
-                    print(f"Error deleting message: {e}")
-            
-            # Envia mensagem aleatória para o jogo atual
-            message_id = await send_random_message(bot, chat_id, game)
-            
-            await asyncio.sleep(180)  # Espera 3 minutos
-            await send_victory_message(bot, chat_id)
-            await asyncio.sleep(5)  # Espera 5 segundos
-            
-            analyzing_message = await bot.send_photo(
-                chat_id=chat_id,
-                photo="https://aqi.co.id/wp-content/uploads/2021/10/Tidak-Selalu-Jahat-Inilah-Pengertian-Hacker-yang-Sesungguhnya.jpg",
-                caption="      🔍 *ANALISANDO ALGORITMO PARA POSSÍVEL ENTRADA* 🧐      \n\nNossos *robôs* estão trabalhando duro para identificar a *melhor oportunidade.* Fique ligado!🚀🔮",
-                parse_mode='Markdown'
-            )
-            analyzing_message_id = analyzing_message.message_id  # Atualiza o ID da mensagem de análise
+            for game in games:
+                messages = game_messages[game]
+                
+                # Apaga a mensagem de análise anterior, se existir
+                if analyzing_message_id is not None:
+                    try:
+                        await bot.delete_message(chat_id=chat_id, message_id=analyzing_message_id)
+                    except Exception as e:
+                        print(f"Error deleting message: {e}")
+                
+                # Envia mensagem aleatória para o jogo atual
+                message_id = await send_random_message(bot, chat_id, game)
+                
+                await asyncio.sleep(180)  # Espera 3 minutos
+                await send_victory_message(bot, chat_id)
+                await asyncio.sleep(5)  # Espera 5 segundos
+                
+                analyzing_message = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo="https://aqi.co.id/wp-content/uploads/2021/10/Tidak-Selalu-Jahat-Inilah-Pengertian-Hacker-yang-Sesungguhnya.jpg",
+                    caption="      🔍 *ANALISANDO ALGORITMO PARA POSSÍVEL ENTRADA* 🧐      \n\nNossos *robôs* estão trabalhando duro para identificar a *melhor oportunidade.* Fique ligado!🚀🔮",
+                    parse_mode='Markdown'
+                )
+                analyzing_message_id = analyzing_message.message_id  # Atualiza o ID da mensagem de análise
 
-            await asyncio.sleep(random.randint(90, 180))  # Espera entre 1 minuto e meio e 3 minutos
-
+                await asyncio.sleep(random.randint(90, 180))  # Espera entre 1 minuto e meio e 3 minutos
+        except telegram.error.TimedOut:
+            print("Uma solicitação excedeu o tempo limite. Continuando com a próxima iteração.")
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
